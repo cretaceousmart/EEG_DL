@@ -4,6 +4,8 @@ from matplotlib import pyplot as plt
 from PIL import Image
 import os 
 from tqdm import tqdm
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
 def read_edf(file_path):
     """
@@ -58,33 +60,6 @@ def obtain_eeg_info(raw, picks):
     return mne.pick_info(raw.info, sel=picks)
 
 
-
-# def obtain_raw_topomap(raw, picks, info, start_time, end_time):
-#     """
-#     Obtain the topomap for a given time period and return the figure object for later use.
-#     """
-#     raw.filter(1, 60, fir_design='firwin') # 滤波: 1-60Hz
-#     data, times = raw.get_data(picks=picks, start=start_time, stop=end_time, return_times=True)
-#     fig, ax = plt.subplots()
-#     mne.viz.plot_topomap(data[:, 0], info, axes=ax, show=False)  # 设置show=False以获取图形对象
-#     plt.close(fig)  # 关闭图形以避免显示
-#     return fig  # 返回Figure对象以供后续查看
-
-
-# def obtain_energy_topomap(raw, picks, info, start_time, end_time):
-#     """
-#     Obtain the topomap for a given time period and return the figure object for later use.
-#     """
-#     raw.filter(1, 60, fir_design='firwin') # 滤波: 1-60Hz
-#     data, times = raw.get_data(picks=picks, start=start_time, stop=end_time, return_times=True)
-#     energy = np.sum(data**2, axis=1)
-
-#     fig, ax = plt.subplots()
-#     mne.viz.plot_topomap(energy, info, axes=ax, show=False)  # 设置show=False以获取图形对象
-#     plt.close(fig)  # 关闭图形以避免显示
-#     return fig  # 返回Figure对象以供后续查看
-
-
 def obtain_single_topomap(raw, picks, info, start_time, end_time, is_energy=True):
     """
     Obtain the topomap for a given time period and return the figure object for later use.
@@ -103,7 +78,12 @@ def obtain_single_topomap(raw, picks, info, start_time, end_time, is_energy=True
 
 
 def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energy = True, is_test = None):
-    output_dir = rf'D:\Research\EEG\EEG_DL_Classifier\tests\{eeg_file_name}'
+
+    current_path = os.path.abspath('')
+    root_dir = os.path.dirname(os.path.dirname(current_path))
+    output_dir = os.path.join(root_dir, 'EEG_DL','src','data', 'output_image', eeg_file_name)
+
+    print(f"Jie Log: output_dir: {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
     sample_rate = raw.info['sfreq']
 
@@ -113,9 +93,8 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
         end_time = int((i + 1) * sample_rate)  # 将秒转换为样本数
         fig = obtain_single_topomap(raw, picks, info, start_time=start_time, end_time=end_time, is_energy=is_energy)
 
-        output_path = rf'D:\Research\EEG\EEG_DL_Classifier\tests\{eeg_file_name}\{eeg_file_name}_{int(start_time/sample_rate)}.png'
-        temp_path = r'D:\Research\EEG\EEG_DL_Classifier\tests\temp.png'
-        
+        output_path = os.path.join(output_dir, f"{eeg_file_name}_{int(start_time/sample_rate)}.png")
+        temp_path = f'../../../data/output_image/temp.png'     
         fig.savefig(temp_path, dpi=100)  # 保存原始图形
         with Image.open(temp_path) as _img:
             _img_resized = _img.resize((fig_size, fig_size), Image.Resampling.LANCZOS)
@@ -125,6 +104,47 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
         os.remove(temp_path)
 
 
+
+
+
+
+
+def prepare_data(eeg_file_name, handle_data_imbalance = False, is_test = True):
+    # read label for each image:
+    with pd.ExcelFile(rf'../src/data/test_data/{eeg_file_name}/{eeg_file_name}.xlsx') as xls:
+        label_df = pd.read_excel(xls, 'Sheet1',header=None)
+        label_df.rename(columns={0: 'label'}, inplace=True)
+    
+    if is_test: label_df = label_df[:100]
+
+    # read image data: 
+    images = []
+    image_folder = rf'../src/data/output_image/{eeg_file_name}/'
+
+    # 加载并处理每张图片
+    label_size = 3600 if not is_test else 100 
+
+    for image_id in range(label_size):
+        image_path = os.path.join(image_folder, f'{eeg_file_name}_{image_id}.png')
+        with Image.open(image_path) as img:
+            img_gray = img.convert('L')  # 转换为灰度图像
+            img_array = np.array(img_gray).flatten()  # 展平为一维向量
+            images.append(img_array)
+
+    # 将图片数据转换为 numpy 数组
+    images_np = np.array(images)
+    # 获取标签
+    labels = label_df['label'].to_numpy()
+
+    # 划分训练集和测试集
+    print(f"Jie log: images_np.shape: {images_np.shape}, labels.shape: {labels.shape}")
+    if handle_data_imbalance:
+        X_train, X_test, y_train, y_test = train_test_split(images_np, labels, test_size=0.3, random_state=42, stratify=labels)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(images_np, labels, test_size=0.3, random_state=42)
+
+    return X_train, X_test, y_train, y_test
+    
 
 
     
