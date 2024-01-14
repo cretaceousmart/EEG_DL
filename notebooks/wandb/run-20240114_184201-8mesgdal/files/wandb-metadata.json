@@ -1,0 +1,52 @@
+{
+    "os": "Windows-10-10.0.22621-SP0",
+    "python": "3.11.7",
+    "heartbeatAt": "2024-01-14T18:42:02.839154",
+    "startedAt": "2024-01-14T18:42:01.925046",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "<python with no main file>",
+    "codePathLocal": null,
+    "git": {
+        "remote": "git@github.com:cretaceousmart/EEG_DL.git",
+        "commit": "7ca5e3627d7ec88b374ed8ac73174b79d066bd36"
+    },
+    "email": "cretaceous1020@gmail.com",
+    "root": "D:/Research/EEG/EEG_DL_Classifier",
+    "host": "LAPTOP-0T77I5T1",
+    "username": "JieLi",
+    "executable": "d:\\Dev\\Anaconda\\envs\\mne\\python.exe",
+    "cpu_count": 24,
+    "cpu_count_logical": 32,
+    "cpu_freq": {
+        "current": 2200.0,
+        "min": 0.0,
+        "max": 2200.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2200.0,
+            "min": 0.0,
+            "max": 2200.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 931.4960899353027,
+            "used": 403.26883697509766
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 4090 Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 4090 Laptop GPU",
+            "memory_total": 17171480576
+        }
+    ],
+    "memory": {
+        "total": 63.62755584716797
+    }
+}
