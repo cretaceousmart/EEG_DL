@@ -37,11 +37,6 @@ def rename_edf(raw):
             'EEG T5-Ref': 'P7',  # T5 在标准10-20系统中通常对应于P7
             'EEG T6-Ref': 'P8'   # T6 在标准10-20系统中通常对应于P8
         }
-
-    # EEG_channels_name = [chanel for chanel in raw.ch_names if "EEG" in chanel]
-    # print(f"Jie Log: len(EEG_channels_name): {len(EEG_channels_name)}, unique_name: {len(set(EEG_channels_name))}")
-    # print(f"Jie Log: EEG_channels_name: {EEG_channels_name}")
-    # assert len(EEG_channels_name) == 16, f"EEG channels number is not 16 but {len(EEG_channels_name)}"
     
     # pick the target channel
     target_EEG_channel = list(channel_mapping.keys())
@@ -50,8 +45,6 @@ def rename_edf(raw):
     # rename the channel name
     raw.rename_channels(channel_mapping)
 
-    
-    
     montage = mne.channels.make_standard_montage('standard_1020')
     raw.set_montage(montage, match_case=False, on_missing='warn')
     return raw
@@ -97,13 +90,6 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
     sample_rate = int(raw.info['sfreq'])
 
     index = 3600 if not is_test else 10
-
-    # # 动态计算循环次数以覆盖所有样本
-    # total_samples = len(raw.times)
-    # index = total_samples // sample_rate
-    # print(f"Jie Log: sample_rate: {sample_rate}, total_samples: {total_samples}, index: {index}")
-    # if (total_samples % sample_rate != 0) and not is_test:
-    #     index += 1  # 如果有剩余样本，增加一个循环来覆盖它们
     
     for i in tqdm(range(0,index), desc=f"Obtain topomap for {eeg_file_name}"):
         start_time = int(i * sample_rate)  # 将秒转换为样本数
@@ -122,8 +108,6 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
         
         plt.close(fig)
         os.remove(temp_path)
-
-
 
 
 
