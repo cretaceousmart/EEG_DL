@@ -1,70 +1,132 @@
-from typing import List, Tuple, Dict
-from itertools import chain
-
-import numpy as np
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+from torchmetrics import Accuracy, F1Score, Precision, Recall
+
 
 class BaseModel(pl.LightningModule):
-  def _predict(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+  """
+  This is the base model class for most of the model in this project (CNN, DenseNet, etc.).
+  It define the functions include:
+
+  
+  forward: Forward pass of the model. when you call self(x) it will automatically call this function.
+
+  traning_step: Perform a training step on the provided batch.
+  test_step: Perform a test step on the provided batch.
+  validation_step: Perform a validation step on the provided batch.
+   
+  configure_optimizers: Lightning optimizers configuration. Uses Adam with 0.1 initial
+
+  """
+
+  def __init__(self, learning_rate: float = 0.1):
     """
-    Perform a prediction step by encoding both the source and the target
-    using the embedding method and compute the dot product between the
-    vectors.
+    Initialize the model.
 
     Args:
-        source (torch.Tensor): Source chords
-        target (torch.Tensor): Target chords
-
-    Returns:
-        torch.Tensor: Tensor of similarities between chord computes as dot products
+        learning_rate (float, optional): Learning rate for the optimizer. Defaults to 0.1.
     """
-    raise NotImplementedError()
+    super().__init__()
+    self.learning_rate = learning_rate
 
-  def training_step(self, batch: torch.Tensor, batch_idx: int):
-    """
-    Perform a training step on the provided batch.
+    self.train_accuracy = Accuracy(task='binary', num_classes=2)
+    self.val_accuracy = Accuracy(task='binary', num_classes=2)
+    self.test_accuracy = Accuracy(task='binary', num_classes=2)
+    self.train_f1 = F1Score(task='binary', num_classes=2)
+    self.val_f1 = F1Score(task='binary', num_classes=2)
+    self.test_f1 = F1Score(task='binary', num_classes=2)
+    self.train_precision = Precision(task='binary', num_classes=2)
+    self.val_precision = Precision(task='binary', num_classes=2)
+    self.test_precision = Precision(task='binary', num_classes=2)
+    self.train_recall = Recall(task='binary', num_classes=2)
+    self.val_recall = Recall(task='binary', num_classes=2)
+    self.test_recall = Recall(task='binary', num_classes=2)
 
-    Args:
-        batch (torch.Tensor): The provided batch.
-        batch_idx (int): The index of the provided batch.
+    # 为什么要写loss_fn而不是loss：因为loss是pytorch_lightning的一个属性，如果写成loss，会报错
+    self.loss_fn = nn.CrossEntropyLoss()
 
-    Returns:
-        Loss on the provided batch.
-    """
-    raise NotImplementedError()
 
-  def configure_optimizers(self) -> Tuple[List[torch.optim.Adam], Dict]:
-    """
-    Lightning optimizers configuration. Uses Adam with 0.1 initial
-    learning rate and a scheduler that reduces the learning rate
-    after 10 optimizations without any improvement in the training
-    loss.
+  def forward(self,x) -> torch.Tensor:
+    raise NotImplementedError("This is an abstract method and should be implemented by subclass.")
 
-    Returns:
-        Tuple[List[torch.optim.Adam], Dict]: The optimizer and the relative scheduler.
-    """
-    optimizer = torch.optim.Adam(self.parameters(), lr=0.01)
+
+  def training_step(self, batch, batch_idx):
+      x, y = batch
+      logits = self(x)
+      pred = torch.argmax(logits, dim=1)
+
+      loss = self.loss_fn(logits, y)
+      self.log('train_loss', loss)
+
+      accuracy = self.train_accuracy(pred, y)
+      self.log('train_accuracy', accuracy)
+
+      f1 = self.train_f1(pred, y)
+      self.log('train_f1', f1)
+
+      precision = self.train_precision(pred, y)
+      self.log('train_precision', precision)
+
+      recall = self.train_recall(pred, y)
+      self.log('train_recall', recall)
+
+      return loss
+
+  
+  def validation_step(self, batch, batch_idx):
+      x, y = batch
+      logits = self(x)
+      pred = torch.argmax(logits, dim=1)
+
+      loss = self.loss_fn(logits, y)
+      self.log('val_loss', loss)
+
+      accuracy = self.val_accuracy(pred, y)
+      self.log('val_accuracy', accuracy)
+
+      f1 = self.val_f1(pred, y)
+      self.log('val_f1', f1)
+
+      precision = self.val_precision(pred, y)
+      self.log('val_precision', precision)
+      
+      recall = self.val_recall(pred, y)
+      self.log('val_recall', recall)
+
+      return loss
+
+  def test_step(self, batch, batch_idx):
+      x, y = batch
+      logits = self(x)
+      pred = torch.argmax(logits, dim=1)
+
+      loss = self.loss_fn(logits, y)
+      self.log('test_loss', loss)
+
+      accuracy = self.test_accuracy(pred, y)
+      self.log('test_accuracy', accuracy)
+
+      f1 = self.test_f1(pred, y)
+      self.log('test_f1', f1)
+
+      precision = self.test_precision(pred, y)
+      self.log('test_precision', precision)
+
+      recall = self.test_recall(pred, y)
+      self.log('test_recall', recall)
+
+      return loss
+
+
+  def configure_optimizers(self):
+    optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
     scheduler = {
-      "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.1, patience=2),
-      "monitor": "train/loss",
-      "interval": "epoch" }
-    return [optimizer], scheduler
+        "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.1, patience=10),  # 如果需要10次没有改进才降低学习率，则这里应为patience=10
+        "monitor": "train_loss",  
+        "interval": "epoch",
+        "frequency": 1  # 每个 epoch 检查一次
+    }
+    return [optimizer], [scheduler]  # scheduler 需要被放在列表中
 
-  def __getitem__(self, chord: np.array) -> np.array:
-    """
-    
-
-    Args:
-        chord (np.array): Input chord already encoded
-
-    Returns:
-        np.array: Embedded chord.
-    """
-    with torch.no_grad():
-    # TODO: write the code here
-    #   embedded = self.embedding(torch.tensor(chord).unsqueeze(0)).squeeze(0).numpy()
-    # return embedded
-      pass

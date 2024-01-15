@@ -85,13 +85,18 @@ class EEG_DataModule(pl.LightningDataModule):
         #图片的归一化处理，原因是：在训练过程中，如果不进行归一化处理，会导致loss值不收敛，因为loss值太大了，导致梯度爆炸，所以需要进行归一化处理
         self.transforms = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((self.image_size, self.image_size)),
+            transforms.Resize((self.image_size, self.image_size),antialias=True),
             transforms.Normalize(mean=[0.5], std=[0.5])  # Assuming single-channel grayscale images    
         ])
 
-        self.setup()
+
+    def prepare_data(self):
+        pass
 
     def setup(self, stage=None):
+        """
+        This method will be automatically called by pl at the beginning of training and validation.
+        """
         # Create datasets with transformations
         dataset = EEG_Dataset(self.eeg_file_names, self.test_mode, transform=self.transforms)
         # Calculate the number of samples for each split
@@ -106,13 +111,8 @@ class EEG_DataModule(pl.LightningDataModule):
         )
 
 
-    # def setup(self, stage=None):
-    #     # Create datasets
-    #     dataset = EEG_Dataset(self.eeg_file_names, self.test_mode)
-    #     self.train_dataset, self.val_dataset, self.test_dataset = random_split(dataset, [self.train_size, self.val_size, self.test_size], generator=torch.Generator().manual_seed(42))
-
     def build_dataloader(self, dataset, shuffle=True):
-        return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle, num_workers=4)
+        return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle, num_workers=0,persistent_workers=False)
 
     def train_dataloader(self):
         return self.build_dataloader(self.train_dataset, shuffle=True)
