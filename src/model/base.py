@@ -20,7 +20,7 @@ class BaseModel(pl.LightningModule):
 
   """
 
-  def __init__(self, learning_rate: float = 0.1):
+  def __init__(self, learning_rate: float = 0.1, patience: int = 10):
     """
     Initialize the model.
 
@@ -29,6 +29,7 @@ class BaseModel(pl.LightningModule):
     """
     super().__init__()
     self.learning_rate = learning_rate
+    self.patience = patience
 
     self.train_accuracy = Accuracy(task='binary', num_classes=2)
     self.val_accuracy = Accuracy(task='binary', num_classes=2)
@@ -123,7 +124,7 @@ class BaseModel(pl.LightningModule):
     optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
     scheduler = {
         "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.1, patience=10),  # 如果需要10次没有改进才降低学习率，则这里应为patience=10
+            optimizer, mode="min", factor=0.1, patience=self.patience),  # 如果需要10次没有改进才降低学习率，则这里应为patience=10
         "monitor": "train_loss",  
         "interval": "epoch",
         "frequency": 1  # 每个 epoch 检查一次

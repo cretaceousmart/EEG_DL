@@ -34,15 +34,17 @@ def train(train_args):
     data_module = EEG_DataModule(
         eeg_file_names = train_args.get("eeg_file_names"),
         test_mode = train_args.get("test_mode"),
+        test_on_each_patient = train_args.get("test_on_each_patient"),
         image_size = train_args.get("image_size"),
         batch_size = train_args.get("batch_size"),
         train_size = train_args.get("train_size"),
         val_size = train_args.get("val_size"),
-        test_size = train_args.get("test_size")
+        test_size = train_args.get("tests_size")
     )
 
+
     # Prepare Model
-    model = CNN()
+    model = CNN(learning_rate = train_args.get("learning_rate"))
 
     # Initialize Wandb logger: `wandb`实例可以在训练过程中记录模型的参数和指标，以便在W&B仪表板中查看，并直接传递给PL的`Trainer`实例
     if not train_args.get("disable_wandb", False):
@@ -51,7 +53,7 @@ def train(train_args):
 
 
     # Initialize Callbacks
-    early_stop_callback = EarlyStopping(monitor="val_loss")
+    early_stop_callback = EarlyStopping(monitor="val_loss") 
 
     checkpoints_callback = ModelCheckpoint(
                                 save_top_k=1,
@@ -74,41 +76,17 @@ def train(train_args):
     # Train the model
     trainer.fit(model=model, datamodule=data_module)
 
-    # Validate the model TODO: define the validate metrics
+    # Validate the model 
     trainer.validate(model=model, datamodule=data_module)
 
     # Test the model
-    trainer.test(model=model, datamodule=data_module)
+    if not train_args.get("test_on_each_patient"):
+        trainer.test(model=model, datamodule=data_module)
+    else:
+        patient_test_dataloaders = data_module.get_patient_test_dataloaders()
+        # 遍历每个患者的DataLoader进行测试
+        for i, dataloader in enumerate(patient_test_dataloaders):
+            print(f"Testing 实验对象 {i + 1}/{len(patient_test_dataloaders)}")
+            # 在这里，每次调用test只测试一个患者的数据
+            trainer.test(model=model, dataloaders=dataloader)
 
-
-
-
-
-# If you want to trin CNN by terminal you can use the following code
-
-# def str2bool(v):
-#     return bool(strtobool(v))
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description="Train EEG Classification Model with CNN.")
-
-#     # Arguments for train_args
-#     parser.add_argument("--eeg_file_names", type=str, nargs='+', required=True, help="List of EEG file names for training.")
-#     parser.add_argument("--test_mode", type=str2bool, default=False, help="Whether to run in test mode.")
-#     parser.add_argument("--image_size", type=int, default=128, help="Image size for CNN input.")
-#     parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training.")
-#     parser.add_argument("--train_size", type=float, default=0.7, help="Proportion of training set.")
-#     parser.add_argument("--val_size", type=float, default=0.2, help="Proportion of validation set.")
-#     parser.add_argument("--test_size", type=float, default=0.1, help="Proportion of test set.")
-#     parser.add_argument("--out", type=str, required=True, help="Directory to save model checkpoints.")
-#     parser.add_argument("--wandb_run_name", type=str, default='EEG_Classification', help="W&B run name.")
-#     parser.add_argument("--disable_wandb", type=str2bool, default=False, help="Disable logging to W&B.")
-#     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum number of training epochs.")
-
-#     args = parser.parse_args()
-
-#     # Convert parsed arguments into a dictionary
-#     train_args = vars(args)
-
-#     # Train the model
-#     train(train_args)

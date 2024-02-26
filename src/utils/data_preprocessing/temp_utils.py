@@ -7,6 +7,7 @@ from tqdm import tqdm
 import math
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import gc # garbage collection
 
 def read_edf(file_path):
     """
@@ -107,6 +108,10 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
             _img_resized.save(output_path)
         
         plt.close(fig)
+        del fig
+        # 每1000次进行一次垃圾回收：
+        if i % 1000 == 0:
+            gc.collect()
         os.remove(temp_path)
 
 
@@ -115,7 +120,7 @@ def obtain_multi_topomap(raw, picks, info, eeg_file_name, fig_size=128, is_energ
 
 def prepare_data(eeg_file_name, handle_data_imbalance = False, is_test = True):
     # read label for each image:
-    with pd.ExcelFile(rf'../src/data/test_data/{eeg_file_name}/{eeg_file_name}.xlsx') as xls:
+    with pd.ExcelFile(rf'../src/data/EEG_DATASET/{eeg_file_name}/{eeg_file_name}.xlsx') as xls:
         label_df = pd.read_excel(xls, 'Sheet1',header=None)
         label_df.rename(columns={0: 'label'}, inplace=True)
     
@@ -157,7 +162,7 @@ def prepare_data_from_multi_file(eeg_file_names, handle_data_imbalance = False, 
 
     for eeg_file_name in eeg_file_names:
         # 读取每个图像的标签
-        with pd.ExcelFile(rf'../src/data/test_data/{eeg_file_name}/{eeg_file_name}.xlsx') as xls:
+        with pd.ExcelFile(rf'../src/data/EEG_DATASET/{eeg_file_name}/{eeg_file_name}.xlsx') as xls:
             label_df = pd.read_excel(xls, 'Sheet1', header=None)
             label_df.rename(columns={0: 'label'}, inplace=True)
 
