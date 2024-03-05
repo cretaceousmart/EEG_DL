@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 
 image_output
+src/data
 src/data/EEG_DATASET
 src/data/test_data
 src/data/output_image

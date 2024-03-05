@@ -12,9 +12,10 @@ import random
 
 
 class EEG_Dataset(Dataset):
-    def __init__(self, eeg_file_names, test_mode=False, transform=None):
+    def __init__(self, eeg_file_names, test_mode=False, transform=None, is_single_channel=True):
         self.all_images, self.all_labels = self.prepare_data_from_multi_file(eeg_file_names, test_mode)
         self.transform = transform
+        self.is_single_channel = is_single_channel
 
     def __len__(self) -> int:
         return len(self.all_images)
@@ -22,7 +23,10 @@ class EEG_Dataset(Dataset):
     def __getitem__(self, index: int):
         # 使用 PIL 加载图像，而不是直接使用 numpy 数组
         image_path = self.all_images[index]
-        image = Image.open(image_path).convert('L')  # 转换为灰度图像
+        if self.is_single_channel:
+            image = Image.open(image_path).convert('L')  # 转换为灰度图像
+        else:
+            image = Image.open(image_path).convert('RGB')
 
         # 应用传递给类的转换
         if self.transform:
@@ -78,6 +82,7 @@ class EEG_DataModule(pl.LightningDataModule):
                  eeg_file_names: List[str],
                  test_mode: bool = False,
                  test_on_each_patient: bool = True,
+                 is_single_channel: bool = True,
                  image_size: Union[int, None] = None,
                  batch_size: int = 32,
                  train_size: float = 0.7, val_size: float = 0.1, test_size: float = 0.2,
@@ -86,6 +91,7 @@ class EEG_DataModule(pl.LightningDataModule):
         self.eeg_file_names = eeg_file_names
         self.test_mode = test_mode
         self.test_on_each_patient = test_on_each_patient
+        self.is_single_channel = is_single_channel
         
         self.image_size = image_size
         self.batch_size = batch_size
@@ -111,7 +117,7 @@ class EEG_DataModule(pl.LightningDataModule):
         This method will be automatically called by pl at the beginning of training and validation.
         """
         # Create datasets with transformations
-        dataset = EEG_Dataset(self.eeg_file_names, self.test_mode, transform=self.transforms)
+        dataset = EEG_Dataset(self.eeg_file_names, self.test_mode, transform=self.transforms, is_single_channel=self.is_single_channel)
         # Calculate the number of samples for each split
         total_size = len(dataset)
         print(f"Jie Log: total_size: {total_size}")

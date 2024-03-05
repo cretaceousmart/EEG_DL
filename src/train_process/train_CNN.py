@@ -4,15 +4,13 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
-
-from distutils.util import strtobool
-import argparse
 import logging
 
 import sys
 sys.path.append('../src/data')
 from data.data_module import EEG_DataModule
 from model.CNN import CNN
+from model.ResNet import ResNet18Model
 
 
 logging.disable(logging.CRITICAL)
@@ -35,6 +33,7 @@ def train(train_args):
         eeg_file_names = train_args.get("eeg_file_names"),
         test_mode = train_args.get("test_mode"),
         test_on_each_patient = train_args.get("test_on_each_patient"),
+        is_single_channel = train_args.get("is_single_channel"),
         image_size = train_args.get("image_size"),
         batch_size = train_args.get("batch_size"),
         train_size = train_args.get("train_size"),
@@ -44,7 +43,10 @@ def train(train_args):
 
 
     # Prepare Model
-    model = CNN(learning_rate = train_args.get("learning_rate"))
+    if train_args.get("model_name") == "CNN":
+        model = CNN(learning_rate = train_args.get("learning_rate"))
+    else:
+        model = ResNet18Model(learning_rate = train_args.get("learning_rate"))
 
     # Initialize Wandb logger: `wandb`实例可以在训练过程中记录模型的参数和指标，以便在W&B仪表板中查看，并直接传递给PL的`Trainer`实例
     if not train_args.get("disable_wandb", False):
