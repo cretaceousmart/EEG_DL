@@ -179,15 +179,17 @@ def obtain_multi_topomap_new(raw, picks, info, output_file_name, eeg_file_name, 
 
 # ------------------- 以下是数据可视化部分 ------------------- #
 
-def visulize_EEG_power(file_path,plotly=False):
-    raw = obtain_processed_raw(file_path)
+def visulize_EEG_power(file_index, freq_name=None, y_range=None, freq = None, time_length=1200, w_h=(400,300)):
+    edf_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.edf'
+    raw = obtain_processed_raw(edf_file_path)
+    if freq:
+        raw.filter(freq[0], freq[1], verbose='WARNING')
     picks = obtain_picks(raw)
-    info = obtain_eeg_info(raw, picks)
 
-    time_length = 3600 # 3600 seconds
+
     sample_rate = raw.info['sfreq']
     energy_list = np.zeros((time_length, 16))
-    for i in range(0,time_length): #先测试0到5秒
+    for i in range(0,time_length): 
         start_time = int(i * sample_rate)  # 将秒转换为样本数
         end_time = int((i + 1) * sample_rate)  # 将秒转换为样本数
 
@@ -195,40 +197,75 @@ def visulize_EEG_power(file_path,plotly=False):
         energy = np.sum(data**2, axis=1)
         energy_list[i] = energy
 
-    print(f"这是file_path: {file_path}的EEG能量时间趋势图")
-    if not plotly:
-        fig, ax = plt.subplots()
-        ax.plot(energy_list)
-        ax.set(xlabel='time (s)', ylabel='energy', title='第{file_path}个患者 energy of 16 channels')
-        
-        # 设置y轴的范围为0到0.0001，且按照0.00001的间隔显示
-        ax.set_ylim(0, 0.0001)
-        # 把每个通道的名字放在图的右边
-        ax.legend(picks, loc='center left', bbox_to_anchor=(1, 0.5))
-        # 设置图像的宽高为：
-        fig.set_size_inches(12, 10)
-        ax.grid()
-        plt.show()
-        return energy_list
+
+    color_map = {
+    'C3': 'rgba(102, 194, 165, 1)',  # 浅绿
+    'C4': 'rgba(252, 141, 98, 1)',   # 浅橙
+    'O1': 'rgba(141, 160, 203, 1)',  # 浅蓝
+    'O2': 'rgba(231, 138, 195, 1)',  # 浅紫
+    'Fp1': 'rgba(166, 216, 84, 1)',  # 柠檬绿
+    'Fp2': 'rgba(255, 217, 47, 1)',  # 鲜黄
+    'T7': 'rgba(229, 196, 148, 1)',  # 沙色
+    'T8': 'rgba(179, 179, 179, 1)',  # 灰色
+    'F3': 'rgba(217, 239, 139, 1)',  # 浅黄绿
+    'F4': 'rgba(254, 224, 139, 1)',  # 浅黄
+    'P3': 'rgba(244, 109, 67, 1)',   # 砖红
+    'P4': 'rgba(253, 174, 97, 1)',   # 桔黄
+    'F7': 'rgba(213, 62, 79, 1)',    # 暗红
+    'F8': 'rgba(50, 136, 189, 1)',   # 宝石蓝
+    'P7': 'rgba(94, 79, 162, 1)',    # 暗紫
+    'P8': 'rgba(102, 37, 6, 1)'      # 深棕
+    }
+
+    # 创建一个2行1列的子图布局
+    fig = make_subplots(rows=1, cols=1)
+
+    for i in range(16):
+        legend_name = raw.info['ch_names'][i]
+        fig.add_trace(
+            go.Scatter(
+                x=np.arange(0, energy_list.shape[1]),
+                y=energy_list[:, i],
+                mode='lines',
+                name=legend_name,  # 用于图例显示的名称
+                legendgroup=legend_name,  # 使用通道名作为legendgroup
+                showlegend=True,  # 只在第一次添加轨迹时显示图例
+                line=dict(color=color_map[legend_name])  # 设置轨迹的颜色
+            ),
+            row=1, col=1
+        )
+   
+
+    # 设置y轴的范围为0到0.0001，且按照0.00001的间隔显示，并更新布局
+    fig.update_layout(
+        title=f'Patient No.{file_index} 频率段：{freq_name}', 
+        xaxis_title='time (s)', 
+        yaxis_title='energy', 
+        xaxis=dict(tickmode='linear', tick0=0, dtick=time_length),
+        # 设置长和宽
+        width=w_h[0],
+        height=w_h[1]
+    )
+
+    # 更新每个子图的Y轴设置
+    if not y_range: 
+        y_min, y_max = 0, np.max(energy_list)
     else:
-        # 使用plotly绘制可交互的折线图并在HTLM中显示
-        pio.renderers.default = "browser"
-        fig = go.Figure()
-        for i in range(16):
-            fig.add_trace(go.Scatter(x=np.arange(0, time_length), y=energy_list[:, i], mode='lines', name=raw.info['ch_names'][i]))
-
-        # 设置y轴的范围为0到0.0001，且按照0.00001的间隔显示
-
-        fig.update_layout(title=f'Patient No.{file_path}: energy of 16 channels', xaxis_title='time (s)', 
-                          yaxis_title='energy', xaxis=dict(tickmode='linear', tick0=0, dtick=300), yaxis=dict(range=[0, 0.0001]))
-        
-        
-        # 在浏览器中显示图像
-        fig.show()
-        # return energy_list
+        y_min, y_max = y_range[0], y_range[1]
+    fig.update_yaxes(tickformat=".2e",range=[y_min, y_max], dtick=y_max/10, row=1, col=1)
+    
+    # 使用plotly dark
+    fig.update_layout(template='plotly_dark')
 
 
-def compare_seizure_non_seizure(file_index, y_max):
+    # 在浏览器中显示图像
+    fig.show()
+
+
+
+
+def obtain_data_seizure_non_seizure(file_index, freq = None):
+
     edf_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.edf'
     label_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.xlsx'
 
@@ -238,6 +275,7 @@ def compare_seizure_non_seizure(file_index, y_max):
 
     # 计算label为0的行的个数，然后选取所有的label为0的行
     label_0_count = label_df[label_df['label'] == 0].shape[0]
+    if label_0_count == 0: return 
 
     # 分别选取所有为0的行 以及 label_0_count个为1的行 分别储存他们的行号
     label_0_index = label_df[label_df['label'] == 0].index
@@ -246,6 +284,9 @@ def compare_seizure_non_seizure(file_index, y_max):
     # 从eeg信号中选取对于时间点的数据
 
     raw = obtain_processed_raw(edf_file_path)
+    if freq:
+        raw.filter(freq[0], freq[1], verbose='WARNING')
+
     picks = obtain_picks(raw)
     info = obtain_eeg_info(raw, picks)
 
@@ -267,49 +308,201 @@ def compare_seizure_non_seizure(file_index, y_max):
         energy = np.sum(data**2, axis=1)
         energy_list[1][i] = energy
     
+    return energy_list
+    
+
+    
+
+
+def plot_line_chart_seizure_non_seizure(file_index, energy_list, y_range=None):
+
+    edf_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.edf'
+    label_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.xlsx'
+
+    with pd.ExcelFile(label_file_path) as xls:
+        label_df = pd.read_excel(xls, 'Sheet1', header=None)
+        label_df.rename(columns={0: 'label'}, inplace=True)
+
+    # 计算label为0的行的个数，然后选取所有的label为0的行
+    label_0_count = label_df[label_df['label'] == 0].shape[0]
+    if label_0_count == 0: return 
+
+    # 从eeg信号中选取对于时间点的数据
+    raw = obtain_processed_raw(edf_file_path)
+
+    color_map = {
+    'C3': 'rgba(102, 194, 165, 1)',  # 浅绿
+    'C4': 'rgba(252, 141, 98, 1)',   # 浅橙
+    'O1': 'rgba(141, 160, 203, 1)',  # 浅蓝
+    'O2': 'rgba(231, 138, 195, 1)',  # 浅紫
+    'Fp1': 'rgba(166, 216, 84, 1)',  # 柠檬绿
+    'Fp2': 'rgba(255, 217, 47, 1)',  # 鲜黄
+    'T7': 'rgba(229, 196, 148, 1)',  # 沙色
+    'T8': 'rgba(179, 179, 179, 1)',  # 灰色
+    'F3': 'rgba(217, 239, 139, 1)',  # 浅黄绿
+    'F4': 'rgba(254, 224, 139, 1)',  # 浅黄
+    'P3': 'rgba(244, 109, 67, 1)',   # 砖红
+    'P4': 'rgba(253, 174, 97, 1)',   # 桔黄
+    'F7': 'rgba(213, 62, 79, 1)',    # 暗红
+    'F8': 'rgba(50, 136, 189, 1)',   # 宝石蓝
+    'P7': 'rgba(94, 79, 162, 1)',    # 暗紫
+    'P8': 'rgba(102, 37, 6, 1)'      # 深棕
+    }
 
     # 创建一个2行1列的子图布局
     fig = make_subplots(rows=1, cols=2)
 
-    # 第一个子图
     for i in range(16):
+        legend_name = raw.info['ch_names'][i]
         fig.add_trace(
             go.Scatter(
-                x=np.arange(0, energy_list.shape[1]),  # 时间点数可能需要根据您的数据进行调整
+                x=np.arange(0, energy_list.shape[1]),
                 y=energy_list[0, :, i],
                 mode='lines',
-                name=raw.info['ch_names'][i]
+                name=legend_name,  # 用于图例显示的名称
+                legendgroup=legend_name,  # 使用通道名作为legendgroup
+                showlegend=True,  # 只在第一次添加轨迹时显示图例
+                line=dict(color=color_map[legend_name])  # 设置轨迹的颜色
             ),
             row=1, col=1
         )
 
-    # 第二个子图
-    for i in range(16):
         fig.add_trace(
             go.Scatter(
-                x=np.arange(0, energy_list.shape[1]),  # 时间点数可能需要根据您的数据进行调整
+                x=np.arange(0, energy_list.shape[1]),
                 y=energy_list[1, :, i],
                 mode='lines',
-                name=raw.info['ch_names'][i]
+                # name=legend_name+'-label1',  # 图例中的名称，尽管这里我们不显示第二个子图的图例项
+                legendgroup=legend_name,  # 保持与第一子图相同的legendgroup
+                showlegend=False,  # 确保图例不会因为第二子图中的轨迹而重复
+                line=dict(color=color_map[legend_name])  # 设置轨迹的颜色
+            ),
+            row=1, col=2
+        )
+    
+
+    # 设置y轴的范围为0到0.0001，且按照0.00001的间隔显示，并更新布局
+    fig.update_layout(
+        title=f'Patient No.{file_index}, label为0的数量：{label_0_count}个', 
+        xaxis_title='time (s)', 
+        yaxis_title='energy', 
+        xaxis=dict(tickmode='linear', tick0=0, dtick=300),
+        xaxis2=dict(tickmode='linear', tick0=0, dtick=300),
+        # 设置长和宽
+        width=1200,
+        height=800
+    )
+
+    # 更新每个子图的Y轴设置
+    if not y_range: 
+        y_min, y_max = 0, np.max(energy_list)
+    else:
+        y_min, y_max = y_range[0], y_range[1]
+    fig.update_yaxes(tickformat=".2e",range=[y_min, y_max], dtick=y_max/10, row=1, col=1)
+    
+    # 使用plotly dark
+    fig.update_layout(template='plotly_dark')
+
+
+    # 在浏览器中显示图像
+    fig.show()
+
+
+def plot_boxplot_seizure_non_seizure(file_index, energy_list, y_range=None):
+    edf_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.edf'
+    raw = obtain_processed_raw(edf_file_path)
+    color_map = {
+    'C3': 'rgba(102, 194, 165, 1)',  # 浅绿
+    'C4': 'rgba(252, 141, 98, 1)',   # 浅橙
+    'O1': 'rgba(141, 160, 203, 1)',  # 浅蓝
+    'O2': 'rgba(231, 138, 195, 1)',  # 浅紫
+    'Fp1': 'rgba(166, 216, 84, 1)',  # 柠檬绿
+    'Fp2': 'rgba(255, 217, 47, 1)',  # 鲜黄
+    'T7': 'rgba(229, 196, 148, 1)',  # 沙色
+    'T8': 'rgba(179, 179, 179, 1)',  # 灰色
+    'F3': 'rgba(217, 239, 139, 1)',  # 浅黄绿
+    'F4': 'rgba(254, 224, 139, 1)',  # 浅黄
+    'P3': 'rgba(244, 109, 67, 1)',   # 砖红
+    'P4': 'rgba(253, 174, 97, 1)',   # 桔黄
+    'F7': 'rgba(213, 62, 79, 1)',    # 暗红
+    'F8': 'rgba(50, 136, 189, 1)',   # 宝石蓝
+    'P7': 'rgba(94, 79, 162, 1)',    # 暗紫
+    'P8': 'rgba(102, 37, 6, 1)'      # 深棕
+    }
+
+    label_file_path = rf'../src/data/EEG_DATASET/{file_index}/{file_index}.xlsx'
+
+    with pd.ExcelFile(label_file_path) as xls:
+        label_df = pd.read_excel(xls, 'Sheet1', header=None)
+        label_df.rename(columns={0: 'label'}, inplace=True)
+
+    # 计算label为0的行的个数
+    label_0_count = label_df[label_df['label'] == 0].shape[0]
+    if label_0_count == 0: return 
+
+    # 创建一个2行1列的子图布局
+    fig = make_subplots(rows=1, cols=2)
+
+    for i in range(16):
+        legend_name = raw.info['ch_names'][i]
+
+        # 对于每个通道，创建一个箱形图
+        fig.add_trace(
+            go.Box(
+                y=energy_list[0, :, i],
+                name=legend_name,  # 用于图例显示的名称
+                showlegend=True,  # 显示图例
+                # 设置颜色：
+                marker=dict(color=color_map[legend_name])
+                
+            ),
+            row=1, col=1
+        )
+
+        # 对于非发作状态下的箱形图
+        fig.add_trace(
+            go.Box(
+                y=energy_list[1, :, i],
+                name=legend_name + ' (发作)',  # 显示图例名称
+                showlegend=True,  # 显示图例
+                #设置颜色：
+                marker=dict(color=color_map[legend_name])
             ),
             row=1, col=2
         )
 
-    # 设置y轴的范围为0到0.0001，且按照0.00001的间隔显示，并更新布局
+    # 更新每个子图的Y轴设置
+    if not y_range: 
+        y_min, y_max = 0, np.max(energy_list)
+    else:
+        y_min, y_max = y_range[0], y_range[1]
+
+    fig.update_yaxes(tickformat=".2e",range=[y_min, y_max], dtick=y_max/10, row=1, col=1)
+    fig.update_yaxes(tickformat=".2e",range=[y_min, y_max], dtick=y_max/10, row=1, col=2)
+
+    # 更新布局
     fig.update_layout(
-        title=f'Patient No.{edf_file_path}: energy of 16 channels', 
-        xaxis_title='time (s)', 
-        yaxis_title='energy', 
-        xaxis=dict(tickmode='linear', tick0=0, dtick=300),
-        xaxis2=dict(tickmode='linear', tick0=0, dtick=300)
+        title=f'Patient No.{file_index}, label为0的数量：{label_0_count}个',
+        # 设置长和宽
+        width=1200,
+        height=800,
+        template='plotly_dark'
     )
 
-    # 更新每个子图的Y轴设置
-    fig.update_yaxes(range=[0, y_max], dtick=y_max/10, row=1, col=1)
-    fig.update_yaxes(range=[0, y_max], dtick=y_max/10, row=1, col=2)
-
-    # 在浏览器中显示图像
     fig.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
